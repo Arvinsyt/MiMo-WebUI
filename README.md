@@ -1,9 +1,4 @@
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://img.shields.io/badge/MiMo_TTS_WebUI-v2.5-amber?style=for-the-badge&labelColor=1a1a2e&color=d4a373">
-    <img alt="MiMo TTS WebUI" src="https://img.shields.io/badge/MiMo_TTS_WebUI-v2.5-amber?style=for-the-badge&labelColor=fefae0&color=d4a373">
-  </picture>
-</p>
+<h1 align="center">MiMo TTS WebUI</h1>
 
 <p align="center">
   <img alt="Vue 3" src="https://img.shields.io/badge/Vue_3-4FC08D?style=flat-square&logo=vuedotjs&logoColor=white">
