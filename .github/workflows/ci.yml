@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [22]
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Cache npm (root)
+        uses: actions/cache@v5
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ matrix.node-version }}-npm-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-${{ matrix.node-version }}-npm-
+
+      - name: Cache npm (server)
+        uses: actions/cache@v5
+        with:
+          path: server/node_modules
+          key: ${{ runner.os }}-node-${{ matrix.node-version }}-server-${{ hashFiles('server/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-${{ matrix.node-version }}-server-
+
+      - name: Cache npm (client)
+        uses: actions/cache@v5
+        with:
+          path: client/node_modules
+          key: ${{ runner.os }}-node-${{ matrix.node-version }}-client-${{ hashFiles('client/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-${{ matrix.node-version }}-client-
+
+      - name: Check .env.example sync
+        run: bash scripts/check-env-example.sh
+
+      - name: Install dependencies
+        run: npm run install:all
+
+      - name: TypeScript type check (client)
+        working-directory: client
+        run: npx vue-tsc --noEmit
+
+      - name: Build (client)
+        run: npm run build
+
+      - name: TypeScript type check & build (server)
+        working-directory: server
+        run: npm run build
