@@ -6,12 +6,14 @@ import { config } from './config.js'
 import ttsRouter from './routes/tts.js'
 import authRouter from './routes/auth.js'
 import { authMiddleware } from './middleware/auth.js'
+import { rpmMiddleware } from './middleware/rateLimit.js'
 
 const app = express()
 
 app.use(cors())
 app.use(express.json({ limit: '10mb' }))
 
+app.use('/api', rpmMiddleware)
 app.use('/api', authRouter)
 app.use('/api', authMiddleware, ttsRouter)
 
