@@ -1,10 +1,16 @@
 <script setup lang="ts">
+/**
+ * ToastContainer - 通知消息容器组件
+ * 渲染全局通知列表，支持错误/成功/信息三种类型
+ * 点击通知可手动关闭
+ */
 import { useNotification } from '../composables/useNotification'
 
 const { notifications, remove } = useNotification()
 </script>
 
 <template>
+  <!-- 通知列表，使用 TransitionGroup 实现动画 -->
   <TransitionGroup name="toast" tag="div" class="toast-container">
     <div
       v-for="n in notifications"
@@ -13,14 +19,17 @@ const { notifications, remove } = useNotification()
       :class="`toast--${n.type}`"
       @click="remove(n.id)"
     >
+      <!-- 错误图标 -->
       <svg v-if="n.type === 'error'" class="toast-icon" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="11" cy="11" r="8" />
         <path d="M8 8l6 6M14 8l-6 6" />
       </svg>
+      <!-- 成功图标 -->
       <svg v-else-if="n.type === 'success'" class="toast-icon" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="11" cy="11" r="8" />
         <path d="M7 11l3 3 5-5" />
       </svg>
+      <!-- 信息图标 -->
       <svg v-else class="toast-icon" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="11" cy="11" r="8" />
         <path d="M11 10v4" />
@@ -37,6 +46,7 @@ const { notifications, remove } = useNotification()
 </template>
 
 <style scoped>
+/* 通知容器 - 顶部居中固定 */
 .toast-container {
   position: fixed;
   top: 24px;
@@ -52,6 +62,7 @@ const { notifications, remove } = useNotification()
   padding: 0 16px;
 }
 
+/* 单个通知条 */
 .toast {
   position: relative;
   display: flex;
@@ -83,6 +94,7 @@ const { notifications, remove } = useNotification()
     0 4px 12px rgba(45, 36, 32, 0.08);
 }
 
+/* 左侧类型指示色条 */
 .toast::before {
   content: '';
   position: absolute;
@@ -108,17 +120,10 @@ const { notifications, remove } = useNotification()
   box-shadow: 0 0 6px rgba(21, 101, 192, 0.15);
 }
 
-.toast--error {
-  color: var(--color-error-text, #c0392b);
-}
-
-.toast--success {
-  color: var(--color-success-text, #2e7d32);
-}
-
-.toast--info {
-  color: var(--color-info-text, #1565c0);
-}
+/* 不同类型文字颜色 */
+.toast--error { color: var(--color-error-text, #c0392b); }
+.toast--success { color: var(--color-success-text, #2e7d32); }
+.toast--info { color: var(--color-info-text, #1565c0); }
 
 .toast-icon {
   width: 20px;
@@ -133,6 +138,7 @@ const { notifications, remove } = useNotification()
   letter-spacing: 0.01em;
 }
 
+/* 关闭按钮 */
 .toast-close {
   flex-shrink: 0;
   width: 24px;
@@ -159,37 +165,28 @@ const { notifications, remove } = useNotification()
   height: 14px;
 }
 
+/* 入场动画 */
 .toast-enter-active {
   animation: toastIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* 离场动画 */
 .toast-leave-active {
   animation: toastOut 0.2s ease-in forwards;
 }
 
+/* 列表重排过渡 */
 .toast-move {
   transition: transform 0.3s ease;
 }
 
 @keyframes toastIn {
-  from {
-    opacity: 0;
-    transform: translateY(-16px) scale(0.94);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+  from { opacity: 0; transform: translateY(-16px) scale(0.94); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @keyframes toastOut {
-  from {
-    opacity: 1;
-    transform: translateX(0) scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: translateX(20px) scale(0.96);
-  }
+  from { opacity: 1; transform: translateX(0) scale(1); }
+  to { opacity: 0; transform: translateX(20px) scale(0.96); }
 }
 </style>

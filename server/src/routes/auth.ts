@@ -1,3 +1,7 @@
+/**
+ * 认证路由模块
+ * 提供登录验证、登出和认证状态检查的 API 端点
+ */
 import { Router, Request, Response } from 'express'
 import { randomUUID } from 'crypto'
 import { config } from '../config.js'
@@ -5,6 +9,10 @@ import { addToken, removeToken, isValidToken, getTokenFromRequest } from '../mid
 
 const router = Router()
 
+/**
+ * POST /api/auth - 密码登录验证
+ * 验证密码后下发 httpOnly 的 auth_token cookie
+ */
 router.post('/auth', (req: Request, res: Response) => {
   const { password } = req.body as { password?: string }
 
@@ -23,6 +31,7 @@ router.post('/auth', (req: Request, res: Response) => {
     return
   }
 
+  // 生成随机 token 并写入 cookie
   const token = randomUUID()
   addToken(token)
   res.cookie('auth_token', token, {
@@ -33,6 +42,10 @@ router.post('/auth', (req: Request, res: Response) => {
   res.json({ message: '验证成功' })
 })
 
+/**
+ * POST /api/auth/logout - 退出登录
+ * 移除 token 并清除 cookie
+ */
 router.post('/auth/logout', (req: Request, res: Response) => {
   const token = getTokenFromRequest(req)
 
@@ -46,6 +59,10 @@ router.post('/auth/logout', (req: Request, res: Response) => {
   res.json({ message: '已退出登录' })
 })
 
+/**
+ * GET /api/auth/check - 检查认证状态
+ * 验证当前请求中的 token 是否有效
+ */
 router.get('/auth/check', (req: Request, res: Response) => {
   const token = getTokenFromRequest(req)
   if (!token || !isValidToken(token)) {

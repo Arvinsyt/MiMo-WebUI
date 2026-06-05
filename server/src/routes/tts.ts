@@ -1,8 +1,14 @@
+/**
+ * TTS 语音合成路由模块
+ * 提供 POST 和 GET 两种方式的语音合成接口
+ * 包含请求验证、缓存查询、上游 API 调用和速率限制
+ */
 import { Router, Request, Response } from 'express'
 import { config } from '../config.js'
 import { audioCache, makeCacheKey } from '../cache.js'
 import { checkInputTokens, checkTpmAndReserve, refundTpm, checkOutputSize, UpstreamApiError } from '../middleware/rateLimit.js'
 
+/** TTS 请求参数 */
 interface TtsParams {
   text: string
   voiceId: string
@@ -12,16 +18,23 @@ interface TtsParams {
   styleTag?: string
 }
 
+/**
+ * 调用 MiMo 上游 API 进行语音合成
+ * 根据是否处于音色克隆模式选择不同的模型
+ */
 async function callMimoTts(params: TtsParams): Promise<{ audioBase64: string }> {
   const { text, voiceId, voiceBase64, styleMode, stylePrompt, styleTag } = params
   const isCloneMode = !!voiceBase64
 
+  // 根据风格模式构建消息列表
   const messages: Array<{ role: string; content: string }> = []
 
   if (styleMode === 'natural' && stylePrompt) {
+    // 自然语言模式：将风格描述作为 user 消息，文本作为 assistant 消息
     messages.push({ role: 'user', content: stylePrompt })
     messages.push({ role: 'assistant', content: text })
   } else if (styleMode === 'tag' && styleTag) {
+    // 标签模式：在文本前插入风格标签
     messages.push({ role: 'assistant', content: `(${styleTag})${text}` })
   } else {
     messages.push({ role: 'assistant', content: text })
@@ -58,6 +71,7 @@ async function callMimoTts(params: TtsParams): Promise<{ audioBase64: string }> 
   return { audioBase64 }
 }
 
+/** TTS 请求参数（宽松类型，兼容 query string） */
 interface TtsRequestOptions {
   text: string
   voiceId?: string
@@ -68,19 +82,26 @@ interface TtsRequestOptions {
   raw?: string
 }
 
+/**
+ * TTS 请求的通用处理函数
+ * 包含：参数验证 -> token 检查 -> 速率限制 -> 缓存查询/API 调用 -> 响应
+ */
 async function handleTtsRequest(res: Response, options: TtsRequestOptions): Promise<void> {
   const { text, voiceId, voiceBase64, styleMode, stylePrompt, styleTag, raw } = options
 
+  // 验证文本不为空
   if (!text || !text.trim()) {
     res.status(400).json({ error: '合成文本不能为空' })
     return
   }
 
+  // 检查 API Key 配置
   if (!config.apiKey) {
     res.status(500).json({ error: 'API Key 未配置，请在 server/.env 中设置 MIMO_API_KEY' })
     return
   }
 
+  // 检查输入 token 是否超过上下文窗口限制
   const inputCheck = checkInputTokens(stylePrompt, styleTag, text)
   if (!inputCheck.ok) {
     res.status(413).json({
@@ -92,6 +113,7 @@ async function handleTtsRequest(res: Response, options: TtsRequestOptions): Prom
     return
   }
 
+  // 检查并预留 TPM（每分钟 token 配额）
   const tpmCheck = checkTpmAndReserve(styleMode, stylePrompt, styleTag, text)
   if (!tpmCheck.ok) {
     res.status(429).json({
@@ -112,13 +134,16 @@ async function handleTtsRequest(res: Response, options: TtsRequestOptions): Prom
     styleTag,
   }
 
+  // 查询缓存
   const key = makeCacheKey(params)
   let buffer = audioCache.get(key)
 
   if (!buffer) {
     try {
+      // 缓存未命中，调用上游 API
       const result = await callMimoTts(params)
 
+      // 检查输出大小是否超限
       if (!checkOutputSize(result.audioBase64)) {
         refundTpm(reservedTokens)
         res.status(413).json({
@@ -130,14 +155,17 @@ async function handleTtsRequest(res: Response, options: TtsRequestOptions): Prom
 
       buffer = Buffer.from(result.audioBase64, 'base64')
     } catch (err) {
+      // 上游 API 错误时退还预留的 TPM
       if (err instanceof UpstreamApiError) {
         refundTpm(reservedTokens)
       }
       throw err
     }
+    // 写入缓存
     audioCache.set(key, buffer)
   }
 
+  // 返回音频数据
   res.set('Content-Type', 'audio/wav')
   if (raw === 'true') {
     res.set('Content-Disposition', 'inline; filename="tts-output.wav"')
@@ -147,6 +175,7 @@ async function handleTtsRequest(res: Response, options: TtsRequestOptions): Prom
 
 const router = Router()
 
+/** POST /api/tts - 从请求体获取参数进行语音合成 */
 router.post('/tts', async (req: Request, res: Response) => {
   try {
     await handleTtsRequest(res, req.body)
@@ -155,6 +184,7 @@ router.post('/tts', async (req: Request, res: Response) => {
   }
 })
 
+/** GET /api/tts - 从查询字符串获取参数进行语音合成 */
 router.get('/tts', async (req: Request, res: Response) => {
   try {
     await handleTtsRequest(res, req.query as unknown as TtsRequestOptions)

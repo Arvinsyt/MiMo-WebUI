@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * StyleControl - 声音风格控制组件
+ * 支持两种模式：自然语言描述 / 预设标签
+ */
 import type { StyleMode } from '@/types'
 
 defineProps<{
@@ -13,15 +17,18 @@ const emit = defineEmits<{
   'update:styleTag': [value: string]
 }>()
 
+/** 预设标签示例列表 */
 const TAG_EXAMPLES = [
   '开心', '悲伤', '愤怒', '温柔', '高冷', '慵懒',
   '磁性', '清亮', '稚嫩', '东北话', '粤语', '唱歌'
 ]
 
+/** 切换风格模式 */
 function setMode(newMode: StyleMode) {
   emit('update:mode', newMode)
 }
 
+/** 选择预设标签 */
 function selectTag(tag: string) {
   emit('update:styleTag', tag)
 }
@@ -29,6 +36,7 @@ function selectTag(tag: string) {
 
 <template>
   <div class="style-control">
+    <!-- 模式切换按钮 -->
     <div class="mode-switch">
       <button
         :class="['mode-btn', { active: mode === 'natural' }]"
@@ -51,6 +59,7 @@ function selectTag(tag: string) {
       </button>
     </div>
 
+    <!-- 自然语言模式：文本描述风格 -->
     <div v-if="mode === 'natural'" class="mode-content natural-mode">
       <textarea
         :value="stylePrompt"
@@ -63,6 +72,7 @@ function selectTag(tag: string) {
       </p>
     </div>
 
+    <!-- 标签模式：选择/输入风格标签 -->
     <div v-else class="mode-content tag-mode">
       <input
         :value="styleTag"
@@ -94,6 +104,7 @@ function selectTag(tag: string) {
   font-family: var(--font-body, 'Noto Sans SC', sans-serif);
 }
 
+/* 模式切换栏 */
 .mode-switch {
   display: flex;
   gap: 6px;
@@ -150,6 +161,7 @@ function selectTag(tag: string) {
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* 自然语言模式文本域 */
 .natural-mode .style-textarea {
   width: 100%;
   min-height: 80px;
@@ -176,6 +188,7 @@ function selectTag(tag: string) {
   color: var(--color-text-hint, #b5a89c);
 }
 
+/* 标签模式输入框 */
 .tag-mode .tag-input {
   width: 100%;
   padding: 10px 14px;
@@ -200,6 +213,7 @@ function selectTag(tag: string) {
   color: var(--color-text-hint, #b5a89c);
 }
 
+/* 标签网格 */
 .tag-grid {
   display: flex;
   flex-wrap: wrap;

@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * TextInput - 文本输入组件
+ * 用于输入要合成语音的文字内容，显示字数统计
+ */
 defineProps<{
   modelValue: string
 }>()
@@ -10,12 +14,14 @@ const emit = defineEmits<{
 
 <template>
   <div class="text-input">
+    <!-- 文本输入区域 -->
     <textarea
       :value="modelValue"
       placeholder="在此输入要合成的文字内容..."
       class="textarea"
       @input="emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)"
     />
+    <!-- 字数统计 -->
     <div class="char-count">{{ modelValue.length }} 字</div>
   </div>
 </template>
@@ -53,6 +59,7 @@ const emit = defineEmits<{
   font-weight: 400;
 }
 
+/* 字数统计 - 右下角定位 */
 .char-count {
   position: absolute;
   right: 14px;

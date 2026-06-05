@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * App.vue - 应用根组件
+ * TTS 语音合成工具主界面，包含音色选择、风格控制、文本输入和音频播放
+ */
 import { ref, computed, onMounted } from 'vue'
 import VoiceSelector from './components/VoiceSelector.vue'
 import StyleControl from './components/StyleControl.vue'
@@ -11,25 +15,34 @@ import AuthGate from './components/AuthGate.vue'
 import { useAuth } from './composables/useAuth'
 import ToastContainer from './components/ToastContainer.vue'
 
+/** 当前选中的音色 ID */
 const voiceId = ref('冰糖')
+/** 是否启用音色复刻模式 */
 const cloneMode = ref(false)
+/** 复刻音频的 Base64 数据 */
 const voiceBase64 = ref<string | null>(null)
+/** 是否已上传音频文件 */
 const hasVoiceFile = ref(false)
+/** 风格控制模式 */
 const styleMode = ref<StyleMode>('natural')
+/** 自然语言风格描述文本 */
 const stylePrompt = ref('')
+/** 预设风格标签 */
 const styleTag = ref('')
+/** 要合成的文字内容 */
 const text = ref('')
 
 const { isLoading, audioBuffer, generateTts } = useTts()
-
 const { isAuthenticated, checkAuth, logout } = useAuth()
 
+/** 是否允许生成语音（文本不为空 + 复刻模式下已上传文件） */
 const canGenerate = computed(() => {
   if (!text.value.trim()) return false
   if (cloneMode.value && !hasVoiceFile.value) return false
   return true
 })
 
+/** 执行语音生成 */
 async function handleGenerate() {
   await generateTts({
     text: text.value,
@@ -41,6 +54,7 @@ async function handleGenerate() {
   })
 }
 
+/** 挂载时检查认证状态 */
 onMounted(() => {
   checkAuth()
 })
@@ -49,14 +63,17 @@ onMounted(() => {
 
 <template>
   <ToastContainer />
+  <!-- 未认证显示登录门，已认证显示主界面 -->
   <AuthGate v-if="!isAuthenticated" />
   <div v-else class="app">
+    <!-- 背景装饰光晕 -->
     <div class="bg-decoration">
       <div class="bg-orb bg-orb-1" />
       <div class="bg-orb bg-orb-2" />
       <div class="bg-orb bg-orb-3" />
     </div>
 
+    <!-- 顶部导航栏 -->
     <header class="header">
       <div class="header-inner">
         <div class="header-brand">
@@ -64,10 +81,12 @@ onMounted(() => {
           <p class="subtitle">语音合成工具</p>
         </div>
         <div class="header-actions">
+          <!-- 状态指示器 -->
           <div class="header-status">
             <span class="status-dot" />
             <span class="status-text">就绪</span>
           </div>
+          <!-- 退出登录按钮 -->
           <button class="logout-btn" @click="logout" title="退出登录">
             <svg class="logout-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M15 6l4 4-4 4" />
@@ -80,7 +99,9 @@ onMounted(() => {
       </div>
     </header>
 
+    <!-- 主内容区域：侧边栏 + 合成面板 -->
     <main class="main">
+      <!-- 左侧边栏：音色选择 + 风格控制 -->
       <aside class="sidebar">
         <div class="sidebar-section">
           <div class="section-header">
@@ -91,6 +112,7 @@ onMounted(() => {
             <h2 class="section-label">选择音色</h2>
           </div>
           <VoiceSelector v-model="voiceId" v-model:cloneMode="cloneMode" />
+          <!-- 复刻模式下显示文件上传组件 -->
           <VoiceCloneUpload
             v-if="cloneMode"
             v-model:voiceBase64="voiceBase64"
@@ -117,9 +139,11 @@ onMounted(() => {
         </div>
       </aside>
 
+      <!-- 右侧主面板：文本输入 + 生成按钮 + 播放器 -->
       <section class="content">
         <div class="content-card">
           <TextInput v-model="text" />
+          <!-- 语音生成按钮 -->
           <button
             class="generate-btn"
             :disabled="isLoading || !canGenerate"
@@ -134,6 +158,7 @@ onMounted(() => {
             <span v-if="isLoading" class="spinner" />
             {{ isLoading ? '生成中...' : '生成语音' }}
           </button>
+          <!-- 音频播放器 -->
           <AudioPlayer :audioBuffer="audioBuffer" />
         </div>
       </section>
@@ -142,6 +167,7 @@ onMounted(() => {
 </template>
 
 <style>
+/* ========== 全局样式 ========== */
 :root {
   --color-bg: #faf7f4;
   --color-surface: #ffffff;
@@ -195,6 +221,7 @@ body {
 </style>
 
 <style scoped>
+/* ========== 背景装饰 ========== */
 .bg-decoration {
   position: fixed;
   inset: 0;
@@ -235,12 +262,14 @@ body {
   animation: orbFloat 18s ease-in-out infinite 5s;
 }
 
+/* 光晕浮动动画 */
 @keyframes orbFloat {
   0%, 100% { transform: translate(0, 0) scale(1); }
   33% { transform: translate(30px, -20px) scale(1.05); }
   66% { transform: translate(-20px, 15px) scale(0.95); }
 }
 
+/* ========== 顶部导航栏 ========== */
 .header {
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(16px);
@@ -285,6 +314,7 @@ body {
   font-weight: 400;
 }
 
+/* 状态指示器 */
 .header-status {
   display: flex;
   align-items: center;
@@ -319,6 +349,7 @@ body {
   gap: 8px;
 }
 
+/* 退出登录按钮 */
 .logout-btn {
   display: flex;
   align-items: center;
@@ -346,6 +377,7 @@ body {
   flex-shrink: 0;
 }
 
+/* ========== 主内容布局 ========== */
 .main {
   max-width: 1100px;
   margin: 0 auto;
@@ -358,6 +390,7 @@ body {
   z-index: 1;
 }
 
+/* 侧边栏：固定宽度，粘性定位 */
 .sidebar {
   width: 320px;
   flex-shrink: 0;
@@ -405,6 +438,7 @@ body {
   padding: 0;
 }
 
+/* 右侧内容区 */
 .content {
   flex: 1;
   min-width: 0;
@@ -425,16 +459,11 @@ body {
 }
 
 @keyframes fadeSlideUp {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
+/* 语音合成按钮 */
 .generate-btn {
   width: 100%;
   padding: 14px 24px;
@@ -476,6 +505,7 @@ body {
   flex-shrink: 0;
 }
 
+/* 加载旋转器 */
 .spinner {
   width: 16px;
   height: 16px;
@@ -489,6 +519,7 @@ body {
   to { transform: rotate(360deg); }
 }
 
+/* ========== 响应式适配 ========== */
 @media (max-width: 768px) {
   .header-inner {
     padding: 14px 16px;

@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/**
+ * AudioPlayer - 音频播放器组件
+ * 使用 Web Audio API 解码并播放生成的语音数据
+ * 支持播放/暂停、进度拖拽、WAV 下载
+ */
 import { ref, watch, onUnmounted } from 'vue'
 import { useNotification } from '../composables/useNotification'
 
@@ -8,9 +13,13 @@ const props = defineProps<{
   audioBuffer: ArrayBuffer | null
 }>()
 
+/** 是否正在播放 */
 const isPlaying = ref(false)
+/** 当前播放位置（秒） */
 const currentTime = ref(0)
+/** 音频总时长（秒） */
 const duration = ref(0)
+/** 播放进度百分比 */
 const progress = ref(0)
 
 let audioContext: AudioContext | null = null
@@ -20,12 +29,14 @@ let startTime = 0
 let pauseTime = 0
 let animFrameId: number | null = null
 
+/** 格式化时间为 mm:ss 格式 */
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60)
   const s = Math.floor(seconds % 60)
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
+/** 开始播放 */
 async function play() {
   if (!decodedBuffer) return
   if (!audioContext) audioContext = new AudioContext()
@@ -52,6 +63,7 @@ async function play() {
   updateProgress()
 }
 
+/** 暂停播放 */
 function pause() {
   if (!sourceNode || !audioContext) return
   sourceNode.onended = null
@@ -67,11 +79,13 @@ function pause() {
   }
 }
 
+/** 切换播放/暂停状态 */
 function togglePlay() {
   if (isPlaying.value) pause()
   else play()
 }
 
+/** 点击进度条跳转 */
 function seek(e: MouseEvent) {
   if (!decodedBuffer || !audioContext) return
   const bar = e.currentTarget as HTMLElement
@@ -79,6 +93,7 @@ function seek(e: MouseEvent) {
   const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
   const seekTime = ratio * duration.value
 
+  // 如果正在播放，先停止当前播放
   if (isPlaying.value) {
     if (sourceNode) sourceNode.onended = null
     sourceNode?.stop()
@@ -98,6 +113,7 @@ function seek(e: MouseEvent) {
   }
 }
 
+/** 使用 requestAnimationFrame 更新播放进度 */
 function updateProgress() {
   if (!isPlaying.value || !audioContext) return
   currentTime.value = audioContext.currentTime - startTime
@@ -107,6 +123,7 @@ function updateProgress() {
   }
 }
 
+/** 下载为 WAV 文件 */
 function downloadWav() {
   if (!props.audioBuffer) return
   const blob = new Blob([props.audioBuffer], { type: 'audio/wav' })
@@ -118,7 +135,9 @@ function downloadWav() {
   URL.revokeObjectURL(url)
 }
 
+/** 监听 audioBuffer 变化：加载新音频或清空 */
 watch(() => props.audioBuffer, async (newVal) => {
+  // 如果正在播放，先停止
   if (isPlaying.value) {
     if (sourceNode) sourceNode.onended = null
     sourceNode?.stop()
@@ -145,6 +164,7 @@ watch(() => props.audioBuffer, async (newVal) => {
     pauseTime = 0
     isPlaying.value = false
   } else {
+    // 清空状态
     decodedBuffer = null
     if (audioContext) {
       audioContext.close()
@@ -158,6 +178,7 @@ watch(() => props.audioBuffer, async (newVal) => {
   }
 })
 
+/** 组件卸载时清理 AudioContext */
 onUnmounted(() => {
   if (animFrameId !== null) cancelAnimationFrame(animFrameId)
   sourceNode?.disconnect()
@@ -168,6 +189,7 @@ onUnmounted(() => {
 <template>
   <Transition name="player-fade">
     <div v-if="audioBuffer" class="audio-player">
+      <!-- 播放/暂停按钮 -->
       <button
         class="play-btn"
         :class="{ playing: isPlaying }"
@@ -181,6 +203,7 @@ onUnmounted(() => {
         </svg>
       </button>
 
+      <!-- 进度条区域 -->
       <div class="player-body">
         <div class="time-row">
           <span class="time current">{{ formatTime(currentTime) }}</span>
@@ -192,6 +215,7 @@ onUnmounted(() => {
         </div>
       </div>
 
+      <!-- 下载按钮 -->
       <button class="download-btn" title="下载 WAV" @click="downloadWav">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -204,6 +228,7 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+/* 播放器容器 */
 .audio-player {
   display: flex;
   align-items: center;
@@ -221,6 +246,7 @@ onUnmounted(() => {
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* 播放/暂停圆形按钮 */
 .play-btn {
   width: 44px;
   height: 44px;
@@ -260,6 +286,7 @@ onUnmounted(() => {
   min-width: 0;
 }
 
+/* 时间显示行 */
 .time-row {
   display: flex;
   justify-content: space-between;
@@ -279,6 +306,7 @@ onUnmounted(() => {
   color: var(--color-primary-dark, #b8845c);
 }
 
+/* 进度条轨道 */
 .progress-track {
   position: relative;
   height: 5px;
@@ -293,6 +321,7 @@ onUnmounted(() => {
   height: 7px;
 }
 
+/* 进度填充 */
 .progress-fill {
   position: absolute;
   top: 0;
@@ -303,6 +332,7 @@ onUnmounted(() => {
   transition: width 0.05s linear;
 }
 
+/* 进度拖拽手柄（悬停显示） */
 .progress-thumb {
   position: absolute;
   top: 50%;
@@ -322,6 +352,7 @@ onUnmounted(() => {
   opacity: 1;
 }
 
+/* 下载按钮 */
 .download-btn {
   width: 36px;
   height: 36px;
@@ -352,6 +383,7 @@ onUnmounted(() => {
   height: 16px;
 }
 
+/* 入场/离场动画 */
 .player-fade-enter-active {
   animation: slideUp 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }

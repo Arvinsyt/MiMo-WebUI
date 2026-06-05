@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * VoiceSelector - 音色选择器组件
+ * 提供预置音色选择和音色复刻模式的切换
+ */
 import { VOICE_PRESETS, type VoicePreset } from '@/types'
 
 withDefaults(defineProps<{
@@ -13,10 +17,12 @@ const emit = defineEmits<{
   'update:cloneMode': [value: boolean]
 }>()
 
+/** 选择预置音色 */
 function selectVoice(voice: VoicePreset) {
   emit('update:modelValue', voice.voiceId)
 }
 
+/** 切换音色复刻模式 */
 function setCloneMode(value: boolean) {
   emit('update:cloneMode', value)
 }
@@ -24,6 +30,7 @@ function setCloneMode(value: boolean) {
 
 <template>
   <div class="voice-selector">
+    <!-- 模式切换标签页 -->
     <div class="mode-tabs">
       <button
         :class="['mode-tab', { active: !cloneMode }]"
@@ -38,6 +45,7 @@ function setCloneMode(value: boolean) {
         音色复刻
       </button>
     </div>
+    <!-- 预置音色网格 -->
     <div class="voice-grid" v-if="!cloneMode">
       <button
         v-for="voice in VOICE_PRESETS"
@@ -56,6 +64,7 @@ function setCloneMode(value: boolean) {
 </template>
 
 <style scoped>
+/* 音色网格 - 两列布局 */
 .voice-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -64,6 +73,7 @@ function setCloneMode(value: boolean) {
   box-sizing: border-box;
 }
 
+/* 音色选项卡片 */
 .voice-item {
   display: flex;
   align-items: center;
@@ -94,6 +104,7 @@ function setCloneMode(value: boolean) {
   box-shadow: 0 2px 8px rgba(212, 165, 116, 0.15);
 }
 
+/* 音色图标容器 */
 .voice-emoji {
   font-size: 20px;
   line-height: 1;
@@ -136,6 +147,7 @@ function setCloneMode(value: boolean) {
   font-weight: 400;
 }
 
+/* 模式切换标签页 */
 .mode-tabs {
   display: flex;
   gap: 6px;

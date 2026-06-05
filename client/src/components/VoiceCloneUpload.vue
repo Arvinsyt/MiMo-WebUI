@@ -1,9 +1,16 @@
 <script lang="ts">
+// 允许的音频 MIME 类型
 const ALLOWED_TYPES = ['audio/mpeg', 'audio/mp3', 'audio/wav']
+// Base64 编码后最大字节数限制（10MB）
 const MAX_BASE64_BYTES = 10 * 1024 * 1024
 </script>
 
 <script setup lang="ts">
+/**
+ * VoiceCloneUpload - 音色复刻上传组件
+ * 支持拖拽或点击上传音频样本文件，用于声音克隆
+ * 提供文件验证、预览播放和清除功能
+ */
 import { ref, onUnmounted } from 'vue'
 
 defineProps<{
@@ -16,14 +23,24 @@ const emit = defineEmits<{
   'update:hasFile': [value: boolean]
 }>()
 
+/** 当前选中的文件 */
 const selectedFile = ref<File | null>(null)
+/** 拖拽悬停状态 */
 const isDragover = ref(false)
+/** 错误提示信息 */
 const errorMsg = ref('')
+/** 音频预览 URL */
 const audioUrl = ref<string | null>(null)
 const audioRef = ref<HTMLAudioElement | null>(null)
 
+/** 用于避免竞态的条件变量 */
 let currentFile: File | null = null
 
+/**
+ * 验证文件格式和大小
+ * @param file - 待验证的文件
+ * @returns 是否通过验证
+ */
 function validateFile(file: File): boolean {
   errorMsg.value = ''
 
@@ -32,6 +49,7 @@ function validateFile(file: File): boolean {
     return false
   }
 
+  // 预估 Base64 后的字节数（Base64 编码膨胀约 1/3）
   const estimatedBase64Size = Math.ceil(file.size * 4 / 3)
   if (estimatedBase64Size > MAX_BASE64_BYTES) {
     errorMsg.value = '音频文件过大，Base64 编码后将超过 10MB，请使用小于 7.5MB 的文件'
@@ -41,20 +59,25 @@ function validateFile(file: File): boolean {
   return true
 }
 
+/**
+ * 处理上传的文件：验证、预览、读取为 Base64
+ */
 function processFile(file: File) {
   if (!validateFile(file)) return
   currentFile = file
 
   selectedFile.value = file
 
+  // 清理旧的预览 URL
   if (audioUrl.value) {
     URL.revokeObjectURL(audioUrl.value)
   }
   audioUrl.value = URL.createObjectURL(file)
 
+  // 使用 FileReader 读取为 DataURL（Base64）
   const reader = new FileReader()
   reader.onload = () => {
-    if (currentFile !== file) return
+    if (currentFile !== file) return // 避免竞态
     const result = reader.result as string
     emit('update:voiceBase64', result)
     emit('update:hasFile', true)
@@ -66,6 +89,7 @@ function processFile(file: File) {
   reader.readAsDataURL(file)
 }
 
+/** 清除当前文件 */
 function clearFile() {
   if (audioRef.value) {
     audioRef.value.pause()
@@ -81,6 +105,7 @@ function clearFile() {
   emit('update:hasFile', false)
 }
 
+/** 拖拽悬停 */
 function onDragOver(e: DragEvent) {
   e.preventDefault()
   isDragover.value = true
@@ -90,6 +115,7 @@ function onDragLeave() {
   isDragover.value = false
 }
 
+/** 拖拽释放处理 */
 function onDrop(e: DragEvent) {
   e.preventDefault()
   isDragover.value = false
@@ -97,18 +123,21 @@ function onDrop(e: DragEvent) {
   if (file) processFile(file)
 }
 
+/** 文件选择输入处理 */
 function onFileInput(e: Event) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
   if (file) processFile(file)
 }
 
+/** 格式化文件大小显示 */
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
+/** 触发隐藏的文件选择器 */
 function triggerFileInput() {
   const input = document.createElement('input')
   input.type = 'file'
@@ -117,6 +146,7 @@ function triggerFileInput() {
   input.click()
 }
 
+/** 切换音频预览播放/暂停 */
 function togglePlay() {
   if (!audioRef.value) return
   if (audioRef.value.paused) {
@@ -126,6 +156,7 @@ function togglePlay() {
   }
 }
 
+/** 组件卸载时清理预览 URL */
 onUnmounted(() => {
   if (audioUrl.value) {
     URL.revokeObjectURL(audioUrl.value)
@@ -135,6 +166,7 @@ onUnmounted(() => {
 
 <template>
   <div class="voice-clone-upload">
+    <!-- 拖拽上传区域 -->
     <div
       v-if="!selectedFile"
       :class="['drop-zone', { dragover: isDragover }]"
@@ -152,6 +184,7 @@ onUnmounted(() => {
       <p class="upload-hint">支持 mp3、wav 格式，Base64 后不超过 10MB</p>
     </div>
 
+    <!-- 已选文件信息 -->
     <div v-else class="file-info">
       <div class="file-details">
         <svg class="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -164,6 +197,7 @@ onUnmounted(() => {
           <span class="file-size">{{ formatSize(selectedFile.size) }}</span>
         </div>
       </div>
+      <!-- 操作按钮 -->
       <div class="file-actions">
         <button class="action-btn play-btn" @click.stop="togglePlay" title="预览播放">
           <svg viewBox="0 0 16 16" fill="currentColor">
@@ -176,9 +210,11 @@ onUnmounted(() => {
           </svg>
         </button>
       </div>
+      <!-- 隐藏的音频元素用于预览 -->
       <audio v-if="audioUrl" ref="audioRef" :src="audioUrl" preload="metadata" class="hidden-audio" />
     </div>
 
+    <!-- 错误提示 -->
     <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
   </div>
 </template>
@@ -189,6 +225,7 @@ onUnmounted(() => {
   font-family: var(--font-body, 'Noto Sans SC', sans-serif);
 }
 
+/* 拖拽上传区域 */
 .drop-zone {
   border: 2px dashed var(--color-border, #ede4dc);
   border-radius: 10px;
@@ -229,6 +266,7 @@ onUnmounted(() => {
   margin: 0;
 }
 
+/* 已选文件信息栏 */
 .file-info {
   display: flex;
   align-items: center;

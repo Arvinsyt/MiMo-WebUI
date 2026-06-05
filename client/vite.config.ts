@@ -12,6 +12,7 @@ export default defineConfig({
   server: {
     port: 10086,
     strictPort: true,
+    // 开发时 API 请求代理到后端
     proxy: {
       '/api': {
         target: 'http://localhost:3000',

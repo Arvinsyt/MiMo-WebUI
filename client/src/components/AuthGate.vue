@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * AuthGate - 认证入口组件
+ * 密码验证门户，用户需输入正确密码才能进入应用
+ */
 import { ref } from 'vue'
 import { useAuth } from '../composables/useAuth'
 import { useNotification } from '../composables/useNotification'
@@ -7,9 +11,12 @@ const emit = defineEmits<{ authenticated: [] }>()
 const { login } = useAuth()
 const { showError, showSuccess } = useNotification()
 
+/** 密码输入 */
 const password = ref('')
+/** 验证请求加载状态 */
 const loading = ref(false)
 
+/** 提交验证 */
 async function handleSubmit() {
   if (!password.value.trim()) return
   loading.value = true
@@ -26,7 +33,9 @@ async function handleSubmit() {
 </script>
 
 <template>
+  <!-- 认证门户：全屏居中遮罩层 -->
   <div class="auth-gate">
+    <!-- 环境光晕背景装饰 -->
     <div class="ambient">
       <div class="ambient-orb ambient-orb-1" />
       <div class="ambient-orb ambient-orb-2" />
@@ -35,6 +44,7 @@ async function handleSubmit() {
       <div class="ambient-floor" />
     </div>
 
+    <!-- 顶部波形动画装饰 -->
     <div class="waveform" aria-hidden="true">
       <span v-for="n in 48" :key="n" class="wave-bar" :style="{
         animationDelay: `${n * 0.06}s`,
@@ -42,7 +52,9 @@ async function handleSubmit() {
       }" />
     </div>
 
+    <!-- 验证卡片 -->
     <div class="gate-card">
+      <!-- 徽章动画 -->
       <div class="card-emblem">
         <div class="emblem-dot" />
         <div class="emblem-ring emblem-ring-1" />
@@ -50,6 +62,7 @@ async function handleSubmit() {
         <div class="emblem-ring emblem-ring-3" />
       </div>
 
+      <!-- 标题 -->
       <h1 class="gate-title">
         <span class="title-line title-line-1">MiMo TTS</span>
         <span class="title-line title-line-2">工作室</span>
@@ -57,8 +70,10 @@ async function handleSubmit() {
 
       <p class="gate-subtitle">输入密码以进入语音工坊</p>
 
+      <!-- 密码输入表单 -->
       <form class="gate-form" @submit.prevent="handleSubmit">
         <div class="input-wrap">
+          <!-- 密码图标 -->
           <svg class="input-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="3" width="14" height="10" rx="2" />
             <path d="M7 17h6M10 13v4" />
@@ -75,6 +90,7 @@ async function handleSubmit() {
           <label for="gate-password" class="input-label">密码</label>
         </div>
 
+        <!-- 提交按钮 -->
         <button
           type="submit"
           class="gate-btn"
@@ -89,6 +105,7 @@ async function handleSubmit() {
       </form>
     </div>
 
+    <!-- 底部安全标识 -->
     <div class="footer-note">
       <span class="note-dot" />
       安全连接 · 加密传输
@@ -97,6 +114,7 @@ async function handleSubmit() {
 </template>
 
 <style scoped>
+/* 认证门户 - 深色背景全屏布局 */
 .auth-gate {
   position: fixed;
   inset: 0;
@@ -116,6 +134,7 @@ async function handleSubmit() {
   overflow: hidden;
 }
 
+/* 环境光晕层 */
 .ambient {
   position: fixed;
   inset: 0;
@@ -166,6 +185,7 @@ async function handleSubmit() {
   animation: orbSway 22s ease-in-out infinite 6s;
 }
 
+/* 地面光晕过渡 */
 .ambient-floor {
   position: absolute;
   inset: 0;
@@ -174,12 +194,14 @@ async function handleSubmit() {
     radial-gradient(ellipse 60% 40% at 50% 100%, rgba(196, 149, 90, 0.02) 0%, transparent 100%);
 }
 
+/* 光晕浮动动画 */
 @keyframes orbSway {
   0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.5; }
   33% { transform: translate(40px, -30px) scale(1.12); opacity: 1; }
   66% { transform: translate(-30px, 20px) scale(0.88); opacity: 0.6; }
 }
 
+/* 波形装饰条 */
 .waveform {
   position: fixed;
   top: 0;
@@ -215,6 +237,7 @@ async function handleSubmit() {
   transform-origin: bottom;
 }
 
+/* 波形条多样化宽度和节奏 */
 .wave-bar:nth-child(odd) {
   animation-duration: 2.8s;
 }
@@ -239,6 +262,7 @@ async function handleSubmit() {
   animation-duration: 2.4s;
 }
 
+/* 波形跳动动画 */
 @keyframes waveDance {
   0%, 100% { height: 4px; opacity: 0.15; }
   15% { height: 48px; opacity: 0.7; }
@@ -248,6 +272,7 @@ async function handleSubmit() {
   80% { height: 36px; opacity: 0.6; }
 }
 
+/* 验证卡片容器 */
 .gate-card {
   position: relative;
   z-index: 2;
@@ -272,6 +297,7 @@ async function handleSubmit() {
   animation: cardEnter 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* 卡片顶部高光线 */
 .gate-card::before {
   content: '';
   position: absolute;
@@ -283,6 +309,7 @@ async function handleSubmit() {
   border-radius: 100%;
 }
 
+/* 卡片入场动画 */
 @keyframes cardEnter {
   from {
     opacity: 0;
@@ -294,6 +321,7 @@ async function handleSubmit() {
   }
 }
 
+/* 徽章区域 */
 .card-emblem {
   position: relative;
   width: 72px;
@@ -307,16 +335,11 @@ async function handleSubmit() {
 }
 
 @keyframes emblemEnter {
-  from {
-    opacity: 0;
-    transform: scale(0.5);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+  from { opacity: 0; transform: scale(0.5); }
+  to { opacity: 1; transform: scale(1); }
 }
 
+/* 徽章中心圆点 */
 .emblem-dot {
   width: 10px;
   height: 10px;
@@ -326,6 +349,7 @@ async function handleSubmit() {
   z-index: 1;
 }
 
+/* 徽章涟漪环 */
 .emblem-ring {
   position: absolute;
   border-radius: 50%;
@@ -350,11 +374,13 @@ async function handleSubmit() {
   animation-delay: 2s;
 }
 
+/* 涟漪扩散动画 */
 @keyframes ringRipple {
   0% { transform: scale(0.6); opacity: 0.6; }
   100% { transform: scale(1.6); opacity: 0; }
 }
 
+/* 标题 */
 .gate-title {
   font-family: var(--font-heading);
   display: flex;
@@ -384,6 +410,7 @@ async function handleSubmit() {
   letter-spacing: 0.15em;
 }
 
+/* 副标题 */
 .gate-subtitle {
   font-size: 13px;
   color: rgba(250, 247, 244, 0.3);
@@ -393,6 +420,7 @@ async function handleSubmit() {
   animation-delay: 0.35s;
 }
 
+/* 表单 */
 .gate-form {
   width: 100%;
   display: flex;
@@ -419,6 +447,7 @@ async function handleSubmit() {
   z-index: 1;
 }
 
+/* 密码输入框 */
 .gate-input {
   width: 100%;
   padding: 16px 16px 16px 46px;
@@ -458,6 +487,7 @@ async function handleSubmit() {
   cursor: not-allowed;
 }
 
+/* 密码标签提示 */
 .input-label {
   position: absolute;
   right: 14px;
@@ -472,6 +502,7 @@ async function handleSubmit() {
   pointer-events: none;
 }
 
+/* 提交按钮 */
 .gate-btn {
   position: relative;
   width: 100%;
@@ -493,6 +524,7 @@ async function handleSubmit() {
   letter-spacing: 0.04em;
 }
 
+/* 按钮扫光效果 */
 .gate-btn::before {
   content: '';
   position: absolute;
@@ -529,6 +561,7 @@ async function handleSubmit() {
   flex-shrink: 0;
 }
 
+/* 加载旋转器 */
 .btn-spinner {
   width: 16px;
   height: 16px;
@@ -543,6 +576,7 @@ async function handleSubmit() {
   to { transform: rotate(360deg); }
 }
 
+/* 底部安全标识 */
 .footer-note {
   position: fixed;
   bottom: 28px;
@@ -566,14 +600,9 @@ async function handleSubmit() {
   background: rgba(250, 247, 244, 0.2);
 }
 
+/* 通用上浮淡入动画 */
 @keyframes fadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 </style>
