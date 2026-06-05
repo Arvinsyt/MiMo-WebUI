@@ -51,4 +51,6 @@ app.listen(config.port, () => {
   }
   console.log(`API Key 已配置: ${!!config.apiKey}`)
   console.log(`访问密码已配置: ${!!config.accessPassword}`)
+  console.log(`NODE_ENV: ${process.env.NODE_ENV || 'unset'}`)
+  console.log(`API限流设置: RPM=${config.rateLimit.maxRpm}, TPM=${config.rateLimit.maxTpm}, 上下文窗口=${config.rateLimit.contextWindow}, 最大输出=${config.rateLimit.maxOutputBytes === 0 ? '不限' : config.rateLimit.maxOutputBytes + ' bytes'}`)
 })
