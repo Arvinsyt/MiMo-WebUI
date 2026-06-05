@@ -11,7 +11,8 @@ export type StyleMode = 'natural' | 'tag'
 
 export interface TtsRequest {
   text: string
-  voiceId: string
+  voiceId?: string
+  voiceBase64?: string
   styleMode: StyleMode
   stylePrompt: string
   styleTag: string
