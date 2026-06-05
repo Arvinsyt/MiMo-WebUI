@@ -1,681 +1,423 @@
-# MiMo TTS WebUI — 详细指南
+<h1 align="center">MiMo TTS WebUI 使用指南</h1>
 
-## 目录
+<p align="center">从安装到部署，完整了解 MiMo TTS WebUI 的方方面面。</p>
 
-- [项目概述](#项目概述)
-- [系统架构](#系统架构)
-- [认证流程](#认证流程)
-- [API 参考](#api-参考)
-- [音频缓存](#音频缓存)
-- [前端组件](#前端组件)
-- [部署指南](#部署指南)
-- [开发指南](#开发指南)
-- [故障排除](#故障排除)
+<br>
 
 ---
 
-## 项目概述
+## 📋 目录
 
-MiMo TTS WebUI 为 [MiMo V2.5 TTS](https://api.xiaomimimo.com) 模型提供全功能 Web 界面。前端基于 Vue 3 SPA，后端基于 Express 5 + TypeScript ESM，前后端均覆盖 TypeScript 类型保障。
+1. [概述](#-概述)
+2. [安装与配置](#-安装与配置)
+3. [运行项目](#-运行项目)
+4. [界面导览](#-界面导览)
+5. [使用 TTS 生成](#-使用-tts-生成)
+6. [语音克隆](#-语音克隆)
+7. [风格控制](#-风格控制)
+8. [访问控制与安全](#-访问控制与安全)
+9. [限流策略](#-限流策略)
+10. [API 参考](#-api-参考)
+11. [构建与部署](#-构建与部署)
+12. [架构概述](#-架构概述)
+13. [常见问题](#-常见问题)
 
-### 适用场景
+---
 
-- 快速体验 MiMo TTS 音色与风格控制
-- 为团队或个人部署内部 TTS 工具
-- 作为 API 网关代理 MiMo 服务（支持脚本调用 `GET /api/tts?raw=true`）
+## 📖 概述
 
-### 技术栈
+MiMo TTS WebUI 是面向 **MiMo V2.5 TTS API** 的图形化前端。它提供了一个全中文的交互界面，让你无需编写代码即可调用 MiMo 的文本转语音能力。
 
-| 层级 | 技术 | 版本 |
+### 核心能力
+
+- 将文字转换为自然流畅的语音（WAV 格式）
+- 从 8 种预设音色中选择发言者
+- 上传音频样本进行声音克隆
+- 通过自然语言描述或音频标签精细控制表达风格
+- 播放、暂停、拖动进度和下载生成的音频
+
+---
+
+## 🔧 安装与配置
+
+### 环境要求
+
+| 依赖 | 最低版本 |
+|------|:--------:|
+| **Node.js** | ≥ 22 |
+| **npm** | ≥ 9 |
+
+### 安装步骤
+
+```bash
+# 克隆仓库
+git clone <repo-url>
+cd mimo-tts-webui
+
+# 一键安装所有依赖（根目录 + server + client）
+npm run install:all
+```
+
+### 配置环境变量
+
+```bash
+cp .env.example .env
+```
+
+编辑 `.env` 文件：
+
+| 变量 | 必填 | 默认值 | 说明 |
+|------|:----:|:------:|------|
+| `MIMO_API_KEY` | ✅ | — | MiMo API 密钥。需向 `api.xiaomimimo.com` 申请 |
+| `ACCESS_PASSWORD` | ❌ | '' | 访问密码。设置后必须输入密码才能使用 |
+| `PORT` | ❌ | 3000 | 后端服务监听端口 |
+| `NODE_ENV` | ❌ | development | 运行环境 |
+| `RATE_LIMIT_CONTEXT_WINDOW` | ❌ | 8192 | 每次请求最大输入 Token 数 |
+| `RATE_LIMIT_MAX_OUTPUT` | ❌ | 0 | 每次请求最大输出字节数（0=不限制） |
+| `RATE_LIMIT_RPM` | ❌ | 100 | 每 IP 每分钟请求数 |
+| `RATE_LIMIT_TPM` | ❌ | 10000000 | 每 IP 每分钟上游 Token 消耗量 |
+
+> ⚠️ 如果不设置 `MIMO_API_KEY` 或值为 `your_api_key_here`，应用会在启动时抛出错误。
+
+---
+
+## ▶️ 运行项目
+
+### 开发模式
+
+```bash
+npm run dev
+```
+
+此命令通过 `concurrently` 同时启动：
+
+| 服务 | 地址 | 技术 |
 |------|------|------|
-| 前端框架 | Vue 3 (Composition API + `<script setup>`) | ^3.5 |
-| 构建工具 | Vite | ^8.0 |
-| 类型检查 | vue-tsc | ^3.3 |
-| 后端框架 | Express | ^5.2 |
-| 运行时 | tsx (开发) / Node.js (生产) | — |
-| 语言 | TypeScript (ESM) | ^6.0 |
-| 字体 | Noto Serif SC · Noto Sans SC · DM Sans | — |
+| **后端** | `http://localhost:3000` | Express + tsx watch（热重载） |
+| **前端** | `http://localhost:10086` | Vite dev server（HMR + API 代理） |
+
+浏览器打开 **http://localhost:10086** 即可使用。
+
+### 局域网访问
+
+Vite 默认绑定 `0.0.0.0:10086`，同一局域网的设备可通过 `http://<你的IP>:10086` 访问。
 
 ---
 
-## 系统架构
+## 🖥️ 界面导览
 
 ```
-mimo-tts-webui/
-│
-├── client/                          # Vue 3 SPA 前端 (Vite 8)
-│   ├── src/
-│   │   ├── App.vue                  # 根组件：布局编排 + 认证状态
-│   │   ├── main.ts                  # Vue 应用入口
-│   │   ├── components/
-│   │   │   ├── AuthGate.vue         # 暗色登录页（密码门 + 波形动画）
-│   │   │   ├── VoiceSelector.vue    # 8 音色卡片选择器
-│   │   │   ├── StyleControl.vue     # 自然语言 / 标签双模式风格控制
-│   │   │   ├── TextInput.vue        # 文本输入 + 实时字数统计
-│   │   │   ├── AudioPlayer.vue      # Web Audio API 自定义播放器
-│   │   │   └── ToastContainer.vue   # 浮动通知系统
-│   │   ├── composables/
-│   │   │   ├── useAuth.ts           # 认证状态（模块级单例）
-│   │   │   ├── useTts.ts            # TTS API 调用 + 加载状态
-│   │   │   └── useNotification.ts   # 全局 Toast 通知
-│   │   └── types/
-│   │       └── index.ts             # VoicePreset, TtsRequest, StyleMode
-│   ├── index.html                   # 入口 HTML（Google Fonts 加载）
-│   └── vite.config.ts               # 端口 10086，代理 /api → :3000
-│
-├── server/                          # Express 5 API 后端
-│   ├── src/
-│   │   ├── index.ts                 # 服务入口 + 路由注册 + 静态文件托管
-│   │   ├── config.ts                # 环境变量加载（PORT, API Key...）
-│   │   ├── cache.ts                 # LRU 音频缓存（50 条，SHA-256 键）
-│   │   ├── routes/
-│   │   │   ├── auth.ts              # 登录 / 登出 / 会话检查
-│   │   │   └── tts.ts               # TTS 生成 + MiMo API 调用
-│   │   └── middleware/
-│   │       └── auth.ts              # Cookie 令牌验证中间件
-│   └── package.json
-│
-├── .env.example                     # 环境变量模板
-├── scripts/
-│   └── check-env-example.sh        # CI 环境变量一致性检查
-├── .github/workflows/ci.yml        # GitHub Actions CI
-└── package.json                     # 根工作区脚本 (concurrently)
+┌──────────────────────────────────────────────┐
+│  🎤 MiMo TTS · 文本转语音                      │
+├──────────────────────────────────────────────┤
+│  ┌─ 音色选择 ─────────────────────────────┐  │
+│  │  🧊 冰糖  🌸 茉莉  🥤 苏打  🌲 白桦  │  │
+│  │  👩 Mia   👩 Chloe  👦 Milo  👨 Dean  │  │
+│  │  [✓ 启用语音克隆]                       │  │
+│  └──────────────────────────────────────────┘  │
+│                                               │
+│  ┌─ 语音克隆 ─────────────────────────────┐  │
+│  │  [拖放或点击上传音频样本]               │  │
+│  └──────────────────────────────────────────┘  │
+│                                               │
+│  ┌─ 风格控制 ─────────────────────────────┐  │
+│  │  ○ 自然语言    ● 音频标签               │  │
+│  │  [标签: 开心  ]                         │  │
+│  └──────────────────────────────────────────┘  │
+│                                               │
+│  ┌─ 文本输入 ─────────────────────────────┐  │
+│  │  [在此输入你要合成的文字...]            │  │
+│  │  已输入: 0 字符                         │  │
+│  │  [🔄 生成语音]                          │  │
+│  └──────────────────────────────────────────┘  │
+│                                               │
+│  ┌─ 音频播放 ─────────────────────────────┐  │
+│  │  ▶ ──────────────○─────── 02:34/05:12  │  │
+│  │  [⬇ 下载 WAV]                          │  │
+│  └──────────────────────────────────────────┘  │
+└──────────────────────────────────────────────┘
 ```
 
-### 请求流转
+主界面从上到下依次为：
 
-```
-浏览器 (localhost:10086)
-    │
-    ▼
-Vite Dev Server (端口 10086)
-    │ 代理 /api/* 请求
-    ▼
-Express Server (端口 3000)
-    │ authMiddleware 验证 Cookie
-    ▼
-路由处理器 (tts.ts / auth.ts)
-    │ 缓存命中 → 直接返回
-    │ 缓存未命中 ↓
-    ▼
-MiMo API (api.xiaomimimo.com)
-    │ 返回 base64 WAV
-    ▼
-解码 → 缓存 → 返回 audio/wav 字节流
-```
-
----
-
-## 认证流程
-
-系统采用 **Cookie 令牌鉴权** — 无 JWT、无数据库、无会话表，纯内存 `Set<string>` 管理。
-
-### 时序图
-
-```
-┌──────────┐                          ┌──────────┐
-│  客户端   │                          │  服务端   │
-│ (Vue SPA) │                          │ (Express) │
-└────┬─────┘                          └────┬─────┘
-     │                                      │
-     │ ① GET /api/auth/check               │
-     │─────────────────────────────────────>│
-     │       401 Unauthorized               │  ← 无 Cookie 或令牌无效
-     │<─────────────────────────────────────│
-     │                                      │
-     │ ② POST /api/auth { password }        │
-     │─────────────────────────────────────>│
-     │   Set-Cookie: auth_token=<uuid>      │  ← 密码正确，签发令牌
-     │<─────────────────────────────────────│
-     │                                      │
-     │ ③ POST /api/tts { text, voiceId }   │
-     │   Cookie: auth_token=<uuid>          │
-     │─────────────────────────────────────>│
-     │   Content-Type: audio/wav            │  ← 令牌有效，返回音频
-     │<─────────────────────────────────────│
-     │                                      │
-     │ ④ POST /api/auth/logout             │
-     │   Cookie: auth_token=<uuid>          │
-     │─────────────────────────────────────>│
-     │   Clear-Cookie: auth_token           │  ← 令牌从内存中删除
-     │<─────────────────────────────────────│
-```
-
-### 关键设计
-
-| 方面 | 决策 |
+| 区域 | 功能 |
 |------|------|
-| **令牌存储** | 内存 `Set<string>`，服务重启全部失效 |
-| **Cookie 安全** | `httpOnly`（防 XSS）+ `SameSite=Lax` + `Path=/` |
-| **无密码模式** | `ACCESS_PASSWORD` 为空时，authMiddleware 直接放行 |
-| **前端状态** | `useAuth` composable（模块级单例 `ref`），页面加载时自动调用 `/api/auth/check` |
-| **登出** | 从 `Set` 删除令牌 + 清除客户端 Cookie |
+| **① 音色选择** | 网格展示 8 个预设音色，可切换语音克隆模式 |
+| **② 语音克隆** | 拖拽或点击上传音频样本（启用克隆后显示） |
+| **③ 风格控制** | 自然语言模式 / 音频标签模式切换 |
+| **④ 文本输入** | 多行文本框，实时显示字符计数 |
+| **⑤ 音频播放器** | 播放 / 暂停 / 进度拖拽 / WAV 下载 |
 
 ---
 
-## API 参考
+## 💬 使用 TTS 生成
 
-### 基础信息
+### 基本流程
 
-- **Base URL:** `http://localhost:3000`（开发）/ 生产部署域名
-- **Content-Type:** `application/json`（除 `/api/tts` 返回 `audio/wav`）
-- **鉴权:** Cookie 头 `auth_token=<uuid>`（`ACCESS_PASSWORD` 未设置时跳过）
+1. **选择音色** — 点击一个预设音色卡片
+2. **输入文字** — 在文本框中输入要转语音的文字
+3. **点击生成** — 点击「生成语音」按钮
+4. **播放** — 在音频播放器中试听
+5. **下载** — 点击下载按钮保存为 WAV 文件
+
+### 注意事项
+
+- 文本长度受 `RATE_LIMIT_CONTEXT_WINDOW` 限制（默认 8192 tokens）
+- 生成过程中 UI 显示加载状态，按钮变为禁用
+- 音频文件缓存在服务端（LRU 缓存，最多 50 条），相同参数的重复请求直接返回缓存结果
 
 ---
 
-### POST /api/auth
+## 🧬 语音克隆
 
-密码登录。
+语音克隆可让 TTS 模仿一段参考音频的声线特征。
+
+### 使用步骤
+
+1. 在音色选择区域勾选 **「启用语音克隆」**
+2. 出现上传区域后，拖放或点击选择音频文件
+3. 支持的格式：**WAV、MP3、OGG、M4A**
+4. 上传完成后，选择「克隆」模式下的任意预设音色作为基础
+5. 输入文字并点击生成
+
+### 说明
+
+> 上传的音频会被 Base64 编码后随请求发送到 API，服务端不会持久化存储。
+> 克隆效果取决于参考音频的质量和时长 — 建议使用 **5-15 秒的清晰人声**。
+
+---
+
+## 🎨 风格控制
+
+提供两种控制表达风格的方式：
+
+### 自然语言模式
+
+在文本框中输入对风格的描述，例如：
 
 ```
-POST /api/auth
-Content-Type: application/json
-
-{ "password": "your_password" }
+用温柔舒缓的语气说这句话
+像在讲睡前故事一样
+充满激情地演讲
 ```
 
-**成功 — 200:**
+描述会作为 `user` 角色的消息发送给 API，让模型理解你的风格要求。
+
+### 音频标签模式
+
+选择或输入一个简短标签，API 会根据标签调整合成风格。
+
+**内置标签示例：** `开心` · `悲伤` · `严肃` · `温柔` · `东北话`
+
+标签会被包装为 `(标签)文本` 的格式发送。
+
+---
+
+## 🔐 访问控制与安全
+
+设置 `ACCESS_PASSWORD` 后，访问 WebUI 会先显示登录页面：
+
+| 场景 | 行为 |
+|------|------|
+| `ACCESS_PASSWORD` **已设置** | 显示登录页，输入密码后获得 httpOnly Cookie |
+| `ACCESS_PASSWORD` **未设置** | 页面直接开放，无需认证 |
+
+### 安全设计
+
+- **API 密钥仅在服务端使用**，不会暴露给浏览器
+- Cookie 设置了 `httpOnly` 和 `SameSite` 属性
+- 认证中间件在所有受保护路由之前执行
+- 退出登录可通过界面右上角的退出按钮操作
+- Cookie 基于内存 Token，服务重启后需重新登录
+
+---
+
+## 🛡️ 限流策略
+
+为保护上游 API 配额，服务内置了两层限流：
+
+### RPM 限制（请求频率）
+
+| 项目 | 说明 |
+|------|------|
+| 粒度 | 基于客户端 IP |
+| 默认值 | 100 次 / 分钟 |
+| 超限响应 | `429 Too Many Requests` |
+| 配置项 | `RATE_LIMIT_RPM` |
+
+### TPM 限制（Token 消耗）
+
+| 项目 | 说明 |
+|------|------|
+| 粒度 | 基于客户端 IP |
+| 估算方式 | 输入文本 1 token/字符，输出按字节 |
+| 默认值 | 10,000,000 tokens / 分钟 |
+| 超限响应 | `429 Too Many Requests` |
+| 配置项 | `RATE_LIMIT_TPM` |
+
+---
+
+## 🌐 API 参考
+
+### POST `/api/tts` — 生成语音
+
+请求体（JSON）：
 
 ```json
-{ "message": "验证成功" }
-```
-
-同时响应头设置：`Set-Cookie: auth_token=<uuid>; HttpOnly; SameSite=Lax; Path=/`
-
-**错误:**
-
-| 状态码 | 响应体 | 说明 |
-|:------:|--------|------|
-| 400 | `{ "error": "密码不能为空" }` | 请求体缺失或 password 为空字符串 |
-| 401 | `{ "error": "密码错误" }` | 密码不匹配 |
-| 500 | `{ "error": "服务未配置访问密码，请在 .env 中设置 ACCESS_PASSWORD" }` | 服务端未设置密码 |
-
----
-
-### POST /api/auth/logout
-
-注销当前会话。
-
-```
-POST /api/auth/logout
-Cookie: auth_token=<uuid>
-```
-
-**成功 — 200:** `{ "message": "已退出登录" }` — 同时清除 Cookie。
-
-**错误 — 401:** `{ "error": "未授权" }` — Cookie 缺失或令牌无效。
-
----
-
-### GET /api/auth/check
-
-验证当前会话。
-
-```
-GET /api/auth/check
-Cookie: auth_token=<uuid>
-```
-
-**成功 — 200:** `{ "authenticated": true }`
-
-**错误 — 401:** `{ "error": "未授权" }`
-
----
-
-### POST /api/tts
-
-生成语音（JSON 请求体）。
-
-```
-POST /api/tts
-Content-Type: application/json
-Cookie: auth_token=<uuid>
-
 {
-  "text": "你好，今天天气真好",
+  "text": "你好世界",
   "voiceId": "冰糖",
+  "voiceBase64": "//uQxAAA...",
   "styleMode": "natural",
-  "stylePrompt": "用温暖的微笑轻声说话",
+  "stylePrompt": "温柔地",
   "styleTag": ""
 }
 ```
 
-**请求参数:**
+**请求字段：**
 
 | 字段 | 类型 | 必填 | 默认值 | 说明 |
-|------|------|:--:|--------|------|
-| `text` | string | ✓ | — | 待合成文本 |
-| `voiceId` | string | — | `"冰糖"` | 音色 ID（`冰糖` / `Mia` 等） |
-| `styleMode` | string | — | — | `"natural"` 或 `"tag"` |
-| `stylePrompt` | string | — | — | 自然语言风格描述（`natural` 模式时生效） |
-| `styleTag` | string | — | — | 预设风格标签（`tag` 模式时生效） |
+|------|------|:----:|:------:|------|
+| `text` | `string` | ✅ | — | 要合成的文字 |
+| `voiceId` | `string` | ❌ | `冰糖` | 音色 ID |
+| `voiceBase64` | `string` | ❌ | — | 语音克隆参考音频的 Base64 |
+| `styleMode` | `string` | ❌ | `natural` | `natural` 或 `tag` |
+| `stylePrompt` | `string` | ❌ | — | 自然语言风格描述 |
+| `styleTag` | `string` | ❌ | — | 音频标签 |
 
-**成功 — 200:** `Content-Type: audio/wav` — 原始 WAV 二进制字节流。
-
-**错误:**
-
-| 状态码 | 响应体 | 说明 |
-|:------:|--------|------|
-| 400 | `{ "error": "合成文本不能为空" }` | text 为空或全空白 |
-| 401 | `{ "error": "未授权，请先验证" }` | Cookie 无效 |
-| 500 | `{ "error": "API Key 未配置..." }` | `MIMO_API_KEY` 未设置 |
-| 500 | `{ "error": "MiMo API 错误: ..." }` | MiMo 服务返回错误 |
-| 500 | `{ "error": "未收到音频数据" }` | MiMo 响应中无音频 |
+**响应：** WAV 二进制数据（`Content-Type: audio/wav`）
 
 ---
 
-### GET /api/tts
+### GET `/api/tts` — 查询参数方式
 
-以查询参数方式调用，行为与 POST 一致。
-
-```
-GET /api/tts?text=你好&voiceId=冰糖&styleMode=natural&stylePrompt=温柔&raw=true
-Cookie: auth_token=<uuid>
-```
-
-**查询参数:** 同 POST 请求体的字段映射为查询参数。
-
-**`raw` 参数:** 设为 `true` 时，额外添加响应头 `Content-Disposition: inline; filename="tts-output.wav"`，便于浏览器或脚本直接识别为音频文件。
-
-```
-# 命令行示例
-curl -b "auth_token=<token>" \
-  "http://localhost:3000/api/tts?text=Hello&voiceId=Mia&raw=true" \
-  -o output.wav
-```
+支持通过查询参数调用。支持 `raw=true` 返回原始 WAV。
 
 ---
 
-### MiMo API 调用细节（内部）
-
-服务端通过 `callMimoTts()` 构造 OpenAI 兼容的 Chat Completions 请求调用 MiMo API。
-
-**目标端点:** `POST https://api.xiaomimimo.com/v1/chat/completions`
-
-**鉴权头:** `api-key: <MIMO_API_KEY>`
-
-**请求体构造规则:**
-
-| 风格模式 | messages 构建逻辑 |
-|----------|-------------------|
-| `natural` | `[{ role: "user", content: stylePrompt }, { role: "assistant", content: text }]` |
-| `tag` | `[{ role: "assistant", content: "({styleTag}){text}" }]` |
-| 无模式 | `[{ role: "assistant", content: text }]` |
-
-**固定字段:** `model: "mimo-v2.5-tts"`, `audio: { format: "wav", voice: "<voiceId>" }`
-
-**音频提取:** 从 `data.choices[0].message.audio.data` 中读取 base64 编码的 WAV，解码为 `Buffer`。
-
----
-
-### GET /health
-
-```
-GET /health
-```
-
-**成功 — 200:**
+### POST `/api/auth` — 登录
 
 ```json
-{ "status": "ok", "apiKeyConfigured": true }
+{ "password": "your_password" }
 ```
 
-无需鉴权。
+- 成功 → `200` 并设置 httpOnly Cookie
+- 失败 → `401`
+
+### GET `/api/auth/check`
+
+检查当前会话是否有效。
+
+### POST `/api/auth/logout`
+
+退出登录，清除会话。
+
+### GET `/health`
+
+健康检查端点。
 
 ---
 
-## 音频缓存
+## 🏗️ 构建与部署
 
-服务端 LRU 缓存避免重复文本消耗 MiMo API 配额。
-
-### 缓存参数
-
-| 配置 | 值 |
-|------|----|
-| 最大容量 | 50 条 |
-| 淘汰策略 | LRU（最近最少使用） |
-| 缓存键 | `SHA-256(text \| voiceId \| styleMode \| stylePrompt \| styleTag)` |
-| TTL | 无（跟随进程生命周期） |
-| 实现 | `server/src/cache.ts` — 基于 `Map<string, Buffer>` 的泛型 LRU 类 |
-| 单例 | `export const audioCache = new LruCache(50)` |
-
-### 缓存行为
-
-1. 收到 TTS 请求 → 计算 `makeCacheKey(params)`
-2. 若缓存命中 → 直接返回 `Buffer`，跳过 MiMo API 调用
-3. 若缓存未命中 → 调用 MiMo API → 成功后存入缓存 → 返回音频
-4. 缓存满时自动淘汰最久未使用的条目
-
-> **注意:** 无缓存清除端点。如需清空缓存，重启服务端进程即可。
-
----
-
-## 前端组件
-
-### 应用结构
-
-```
-App.vue
-├── ToastContainer.vue           # z-index: 9999 浮动通知层
-├── AuthGate.vue                # 未认证时显示
-└── div.app                     # 已认证时显示
-    ├── header                  # 标题 + 登出按钮
-    ├── aside.sidebar
-    │   ├── VoiceSelector.vue   # v-model → voiceId
-    │   └── StyleControl.vue    # v-model:mode, v-model:stylePrompt, v-model:styleTag
-    └── section.content
-        └── div.content-card
-            ├── TextInput.vue   # v-model → text
-            ├── button           # 生成按钮 → handleGenerate()
-            └── AudioPlayer.vue # prop: audioBuffer
-```
-
-> 无需前端路由。单页应用中认证状态决定渲染 AuthGate 还是主界面。
-
----
-
-### AuthGate.vue
-
-全屏暗色登录页，仅在 `ACCESS_PASSWORD` 已配置时出现。
-
-| 特性 | 实现 |
-|------|------|
-| 主题 | 独立暗色主题，不受主应用 CSS 变量影响 |
-| 视觉效果 | 动态环境光球（ambient orbs）+ 48 条波形柱动画 |
-| 卡片风格 | 玻璃拟态（glassmorphism）卡片 + 涟漪徽标 |
-| 交互 | 密码输入 → 回车或点击提交 → 调用 `useAuth().login()` |
-| 加载态 | 提交按钮显示旋转 spinner |
-| 事件 | 认证成功 emit `authenticated` → App.vue 切换视图 |
-
----
-
-### VoiceSelector.vue
-
-8 种音色的 2×4 网格选择器。
-
-```
-Props: modelValue: string   （当前选中的 voiceId）
-Emits: update:modelValue    （选中变更）
-
-┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐
-│ 🧊 冰糖 │ │ 🌸 茉莉 │ │ 🥤 苏打 │ │ 🌲 白桦 │
-│ 女 · 中 │ │ 女 · 中 │ │ 男 · 中 │ │ 男 · 中 │
-└────────┘ └────────┘ └────────┘ └────────┘
-┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐
-│ 👩 Mia │ │ 👩 Chloe│ │ 👦 Milo │ │ 👨 Dean │
-│ 女 · 英 │ │ 女 · 英 │ │ 男 · 英 │ │ 男 · 英 │
-└────────┘ └────────┘ └────────┘ └────────┘
-```
-
-每张卡片显示 emoji、名称、性别（女/男）和语言（中/英）标签。选中态通过 CSS class 高亮。
-
----
-
-### StyleControl.vue
-
-双模式风格控制。
-
-**自然语言模式:** 自由文本 `<textarea>`，输入任意语气描述，如：
-
-> "用温暖的微笑轻声说话，像是在哄小朋友入睡"
-
-**标签模式:** 文本 `<input>` 支持自定义标签 + 12 个预设标签按钮：
-
-| 开心 | 悲伤 | 愤怒 | 温柔 | 高冷 | 慵懒 |
-|------|------|------|------|------|------|
-| 磁性 | 清亮 | 稚嫩 | 东北话 | 粤语 | 唱歌 |
-
-```
-Props:  mode: StyleMode, stylePrompt: string, styleTag: string
-Emits:  update:mode, update:stylePrompt, update:styleTag
-```
-
-两种模式互斥切换，切换时自动清空另一模式的输入内容。
-
----
-
-### TextInput.vue
-
-```
-Props: modelValue: string
-Emits: update:modelValue
-
-┌──────────────────────────────────┐
-│                                  │
-│  请输入要合成的文本...            │  ← textarea (min-height: 140px)
-│                                  │
-│                          0/500   │  ← 右下角实时字数
-└──────────────────────────────────┘
-```
-
-多行输入框，带实时字符计数覆盖层。
-
----
-
-### AudioPlayer.vue
-
-基于 Web Audio API 的自研播放器，零外部依赖。
-
-```
-Props: audioBuffer: ArrayBuffer | null
-
-┌──────────────────────────────────────────────┐
-│  ▶  ─────●─────────────────────  00:12/00:35 │
-│                                     ⬇ WAV   │
-└──────────────────────────────────────────────┘
-```
-
-| 功能 | 实现 |
-|------|------|
-| 音频解码 | `AudioContext.decodeAudioData()` |
-| 播放/暂停 | `AudioBufferSourceNode` + `start()` / `stop()` |
-| 进度控制 | 点击进度条跳转 → `start(0, offset)` |
-| 时间显示 | 当前时间 / 总时长，`setInterval` 驱动 |
-| 下载 | 从 `ArrayBuffer` 构造 Blob URL → `<a download>` |
-
-当 `audioBuffer` prop 变化时自动解码新音频。组件卸载（`onUnmounted`）时清理 AudioContext 资源。
-
----
-
-### ToastContainer.vue
-
-```
-┌─────────────────────────────────┐
-│ ⚠  API Key 未配置               │  ← error（红色左边栏）
-├─────────────────────────────────┤
-│ ✓  音频生成成功                  │  ← success（绿色左边栏）
-├─────────────────────────────────┤
-│ ℹ  正在生成语音...              │  ← info（蓝色左边栏）
-└─────────────────────────────────┘
-```
-
-- 基于 `useNotification()` 模块级单例（`ref<Notification[]>`）
-- `<TransitionGroup>` 实现交错进出动画
-- 点击关闭或 4 秒自动消失
-- 三种类型各有独立样式（error / success / info）
-
----
-
-### Composables
-
-**useAuth.ts** — 认证状态管理
-
-```ts
-// 模块级单例 ref —— 全局唯一状态源
-const isAuthenticated = ref<boolean>(false)
-
-checkAuth(): Promise<void>        // GET /api/auth/check
-login(password: string): Promise<void>  // POST /api/auth
-logout(): Promise<void>           // POST /api/auth/logout
-```
-
-**useTts.ts** — TTS 调用封装
-
-```ts
-const isLoading = ref(false)
-const audioBuffer = ref<ArrayBuffer | null>(null)
-
-generateTts(request: TtsRequest): Promise<void>  // POST /api/tts
-```
-
-401 错误时自动调用 `useAuth().logout()` 跳回登录页。
-
-**useNotification.ts** — 全局通知
-
-```ts
-add(type: NotificationType, message: string): void
-showError(msg: string): void
-showSuccess(msg: string): void
-showInfo(msg: string): void
-```
-
-通知 4 秒后自动从队列移除。
-
----
-
-## 部署指南
-
-### 生产构建
+### 构建
 
 ```bash
-npm run build                    # 前端 (vue-tsc + vite build)
-cd server && npm run build       # 后端 (tsc)
+npm run build
 ```
 
-生产模式（`NODE_ENV=production`）下，Express 自动托管 `client/dist/` 静态文件并启用 SPA 回退路由。
+此命令会依次执行：
+
+1. **前端构建** — `vue-tsc --noEmit` 类型检查 → `vite build` 输出到 `client/dist/`
+2. **后端构建** — `tsc` 编译到 `server/dist/`
+
+### 生产运行
 
 ```bash
-NODE_ENV=production node server/dist/index.js
+npm start
 ```
 
----
+生产模式下：
+- 后端监听 `PORT` 端口（默认 3000）
+- 前端静态文件由 Express 托管（从 `client/dist/` 提供）
+- **无需额外的前端服务器**
 
-### PM2（推荐）
+### 使用反向代理
 
-```bash
-npm install -g pm2
-
-npm run build && cd server && npm run build && cd ..
-
-NODE_ENV=production pm2 start server/dist/index.js --name mimo-tts
-
-pm2 status          # 查看状态
-pm2 startup && pm2 save  # 开机自启
-```
-
----
-
-### Docker
-
-```dockerfile
-FROM node:22-alpine
-
-WORKDIR /app
-
-COPY package*.json ./
-COPY client/package*.json client/
-COPY server/package*.json server/
-RUN npm run install:all
-
-COPY . .
-RUN npm run build && cd server && npm run build
-
-ENV NODE_ENV=production
-EXPOSE 3000
-
-CMD ["node", "server/dist/index.js"]
-```
-
-```bash
-docker build -t mimo-tts-webui .
-docker run -d -p 3000:3000 --env-file .env mimo-tts-webui
-```
-
----
-
-### Nginx 反向代理
+推荐使用 Nginx 或 Caddy 作为反向代理：
 
 ```nginx
 server {
-    listen 80;
+    listen 443 ssl;
     server_name tts.example.com;
 
     location / {
         proxy_pass http://127.0.0.1:3000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
 ```
 
 ---
 
-## 开发指南
+## 🏛️ 架构概述
 
-### 环境要求
-
-- **Node.js** >= 22
-- **npm** >= 9
-
-### 首次安装
-
-```bash
-git clone https://github.com/your-username/mimo-tts-webui.git
-cd mimo-tts-webui
-npm run install:all     # 同时安装 root / server / client 三处依赖
-cp .env.example .env    # 编辑填入 MIMO_API_KEY
+```
+┌──────────┐    HTTP/API     ┌──────────┐    POST /v1/chat   ┌──────────────┐
+│  Browser │ ◄─────────────► │  Server  │ ◄─────────────────► │  MiMo TTS    │
+│  (Vue 3) │    localhost     │ (Express)│    (proxy + key)    │  API Server  │
+└──────────┘                 └──────────┘                     └──────────────┘
+                                  │
+                          ┌───────┴───────┐
+                          │  LRU 缓存     │
+                          │  (50 条记录)   │
+                          └───────────────┘
 ```
 
-### 启动开发环境
+### 数据流
 
-```bash
-npm run dev              # 前后端并发启动（推荐）
-```
+| 步骤 | 说明 |
+|:----:|------|
+| ① | 用户在浏览器中选择音色、输入文字 |
+| ② | Vue 组件通过 `useTts` composable 发送 POST 请求 |
+| ③ | Express 服务端收到请求，附加 API Key 后转发到 MiMo API |
+| ④ | MiMo 返回 Base64 编码的 WAV 音频 |
+| ⑤ | 服务端将音频缓存（SHA-256 哈希键值），返回 WAV 二进制 |
+| ⑥ | 浏览器通过 **Web Audio API** 解码并播放 |
+| ⑦ | 文件可通过下载按钮保存为 `.wav` |
 
-| 服务 | 地址 | 说明 |
-|------|------|------|
-| 前端 (Vite) | `http://localhost:10086` | HMR 热更新 |
-| 后端 (Express) | `http://localhost:3000` | tsx watch 热重载 |
+### 缓存策略
 
-Vite 开发服务器自动将 `/api` 请求代理到后端。
-
-### 单独启动
-
-```bash
-npm run dev:client       # 仅前端（需要后端先启动）
-npm run dev:server       # 仅后端
-```
-
-### 类型检查与构建
-
-```bash
-cd client && npx vue-tsc -b    # 前端类型检查
-cd server && npx tsc --noEmit  # 后端类型检查
-npm run build                  # 前端完整构建
-cd server && npm run build     # 后端编译到 dist/
-```
-
-### CI
-
-GitHub Actions（`.github/workflows/ci.yml`）流程：
-1. Node 22, Ubuntu
-2. `.env.example` 一致性检查
-3. 安装全部依赖
-4. 前端 `vue-tsc` 类型检查 + Vite 构建
-5. 后端 `tsc` 编译
+- **算法：** LRU（Least Recently Used）
+- **容量：** 最多 50 条记录
+- **缓存键：** `SHA256(text + voiceId + voiceBase64 + styleMode + stylePrompt + styleTag)`
+- **行为：** 参数完全相同的重复请求直接从缓存返回，不消耗 API 配额
 
 ---
 
-## 故障排除
+## ❓ 常见问题
 
-| 问题 | 可能原因 | 解决方案 |
-|------|----------|----------|
-| 登录页空白/一直加载 | 后端未启动或端口冲突 | 确认 `npm run dev:server` 正常，检查 3000 端口 |
-| 语音生成 500 错误 | `MIMO_API_KEY` 未配置 | 检查 `.env` 文件，确保 `MIMO_API_KEY` 有效 |
-| 401 Unauthorized 循环 | Cookie 过期或令牌无效 | 清除浏览器 Cookie，重新登录 |
-| CORS 错误 | 生产环境未统一端口或反向代理 | 配置 Nginx 代理，或通过同一端口提供前后端 |
-| 重复请求返回相同音频 | LRU 缓存命中（正常行为） | 预期行为，重启进程可清空缓存 |
-| 端口 10086 被占用 | 其他进程占用 | `lsof -i :10086` 查找并终止，或修改 `vite.config.ts` |
-| `module not found` 错误 | 依赖未完整安装 | 重新运行 `npm run install:all` |
+### 启动后浏览器页面空白？
+
+确保已正确设置 `MIMO_API_KEY`，检查 `.env` 文件是否存在且配置正确。运行 `npm run build` 确认构建无报错。
+
+### 生成语音时提示 "Failed to fetch"？
+
+- 确认后端服务正在运行（默认端口 3000）
+- 检查 API Key 是否有效
+- 查看服务端控制台输出是否有错误信息
+
+### 语音克隆效果不理想？
+
+- 建议使用 **5-15 秒的清晰人声音频**
+- 背景噪音会影响克隆质量
+- 不同音色在克隆模式下的表现可能有所不同
+
+### 如何更换 API 接口？
+
+编辑 `server/src/config.ts` 中的 `apiBase` 配置项。当前指向 `https://api.xiaomimimo.com/v1`。
+
+### 如何清空音频缓存？
+
+重启服务端进程即可 — 缓存存储在内存中，重启即自动清空。
