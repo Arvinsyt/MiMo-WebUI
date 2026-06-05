@@ -42,12 +42,16 @@ export const audioCache = new LruCache(50)
 interface CacheKeyParams {
   text: string
   voiceId: string
+  voiceBase64?: string
   styleMode?: string
   stylePrompt?: string
   styleTag?: string
 }
 
 export function makeCacheKey(params: CacheKeyParams): string {
-  const raw = `${params.text}|${params.voiceId}|${params.styleMode ?? ''}|${params.stylePrompt ?? ''}|${params.styleTag ?? ''}`
+  const voiceBase64Hash = params.voiceBase64
+    ? createHash('sha256').update(params.voiceBase64).digest('hex').slice(0, 16)
+    : ''
+  const raw = `${params.text}|${params.voiceId}|${voiceBase64Hash}|${params.styleMode ?? ''}|${params.stylePrompt ?? ''}|${params.styleTag ?? ''}`
   return createHash('sha256').update(raw).digest('hex')
 }
