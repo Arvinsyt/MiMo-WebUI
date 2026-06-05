@@ -11,7 +11,14 @@ let rpmTotalRequests = 0
 let tpmWindowStart = Date.now()
 let tpmTokensUsed = 0
 
-function estimateTokens(text: string): number {
+export class UpstreamApiError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'UpstreamApiError'
+  }
+}
+
+export function estimateTokens(text: string): number {
   let tokens = 0
   for (const char of text) {
     if (char >= '\u4e00' && char <= '\u9fff') {
@@ -82,7 +89,7 @@ export function checkTpmAndReserve(
   stylePrompt: string | undefined,
   styleTag: string | undefined,
   text: string
-): { ok: boolean; retryAfter?: number } {
+): { ok: boolean; retryAfter?: number; reservedTokens?: number } {
   let upstreamTokens = estimateTokens(text)
   if (styleMode === 'natural' && stylePrompt) {
     upstreamTokens += estimateTokens(stylePrompt)
@@ -102,7 +109,7 @@ export function checkTpmAndReserve(
   }
 
   tpmTokensUsed += upstreamTokens
-  return { ok: true }
+  return { ok: true, reservedTokens: upstreamTokens }
 }
 
 export function refundTpm(tokens: number): void {

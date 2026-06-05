@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express'
 import { config } from '../config.js'
 import { audioCache, makeCacheKey } from '../cache.js'
+import { checkInputTokens, checkTpmAndReserve, refundTpm, checkOutputSize, UpstreamApiError } from '../middleware/rateLimit.js'
 
 interface TtsParams {
   text: string
@@ -11,7 +12,7 @@ interface TtsParams {
   styleTag?: string
 }
 
-async function callMimoTts(params: TtsParams): Promise<Buffer> {
+async function callMimoTts(params: TtsParams): Promise<{ audioBase64: string }> {
   const { text, voiceId, voiceBase64, styleMode, stylePrompt, styleTag } = params
   const isCloneMode = !!voiceBase64
 
@@ -44,7 +45,7 @@ async function callMimoTts(params: TtsParams): Promise<Buffer> {
 
   if (!response.ok) {
     const errorText = await response.text()
-    throw new Error(`MiMo API 错误: ${errorText}`)
+    throw new UpstreamApiError(`MiMo API 错误: ${errorText}`)
   }
 
   const data = await response.json() as any
@@ -54,7 +55,7 @@ async function callMimoTts(params: TtsParams): Promise<Buffer> {
     throw new Error('未收到音频数据')
   }
 
-  return Buffer.from(audioBase64, 'base64')
+  return { audioBase64 }
 }
 
 interface TtsRequestOptions {
@@ -80,6 +81,28 @@ async function handleTtsRequest(res: Response, options: TtsRequestOptions): Prom
     return
   }
 
+  const inputCheck = checkInputTokens(stylePrompt, styleTag, text)
+  if (!inputCheck.ok) {
+    res.status(413).json({
+      error: 'context_window_exceeded',
+      message: `输入文本超过 ${inputCheck.limit} token 限制`,
+      limit: inputCheck.limit,
+      actual: inputCheck.actual,
+    })
+    return
+  }
+
+  const tpmCheck = checkTpmAndReserve(styleMode, stylePrompt, styleTag, text)
+  if (!tpmCheck.ok) {
+    res.status(429).json({
+      error: 'tpm_limit_exceeded',
+      message: '上游服务配额已满，请稍后重试',
+      retry_after: tpmCheck.retryAfter,
+    })
+    return
+  }
+  const reservedTokens = tpmCheck.reservedTokens!
+
   const params: TtsParams = {
     text,
     voiceId: voiceId || '冰糖',
@@ -93,7 +116,25 @@ async function handleTtsRequest(res: Response, options: TtsRequestOptions): Prom
   let buffer = audioCache.get(key)
 
   if (!buffer) {
-    buffer = await callMimoTts(params)
+    try {
+      const result = await callMimoTts(params)
+
+      if (!checkOutputSize(result.audioBase64)) {
+        refundTpm(reservedTokens)
+        res.status(413).json({
+          error: 'output_size_exceeded',
+          message: '生成的音频数据超过大小限制',
+        })
+        return
+      }
+
+      buffer = Buffer.from(result.audioBase64, 'base64')
+    } catch (err) {
+      if (err instanceof UpstreamApiError) {
+        refundTpm(reservedTokens)
+      }
+      throw err
+    }
     audioCache.set(key, buffer)
   }
 
