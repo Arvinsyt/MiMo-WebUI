@@ -5,13 +5,15 @@ import { audioCache, makeCacheKey } from '../cache.js'
 interface TtsParams {
   text: string
   voiceId: string
+  voiceBase64?: string
   styleMode?: 'natural' | 'tag'
   stylePrompt?: string
   styleTag?: string
 }
 
 async function callMimoTts(params: TtsParams): Promise<Buffer> {
-  const { text, voiceId, styleMode, stylePrompt, styleTag } = params
+  const { text, voiceId, voiceBase64, styleMode, stylePrompt, styleTag } = params
+  const isCloneMode = !!voiceBase64
 
   const messages: Array<{ role: string; content: string }> = []
 
@@ -31,11 +33,11 @@ async function callMimoTts(params: TtsParams): Promise<Buffer> {
       'api-key': config.apiKey
     },
     body: JSON.stringify({
-      model: 'mimo-v2.5-tts',
+      model: isCloneMode ? 'mimo-v2.5-tts-voiceclone' : 'mimo-v2.5-tts',
       messages,
       audio: {
         format: 'wav',
-        voice: voiceId
+        voice: isCloneMode ? voiceBase64 : voiceId
       }
     })
   })
@@ -58,6 +60,7 @@ async function callMimoTts(params: TtsParams): Promise<Buffer> {
 interface TtsRequestOptions {
   text: string
   voiceId?: string
+  voiceBase64?: string
   styleMode?: string
   stylePrompt?: string
   styleTag?: string
@@ -65,7 +68,7 @@ interface TtsRequestOptions {
 }
 
 async function handleTtsRequest(res: Response, options: TtsRequestOptions): Promise<void> {
-  const { text, voiceId, styleMode, stylePrompt, styleTag, raw } = options
+  const { text, voiceId, voiceBase64, styleMode, stylePrompt, styleTag, raw } = options
 
   if (!text || !text.trim()) {
     res.status(400).json({ error: '合成文本不能为空' })
@@ -80,6 +83,7 @@ async function handleTtsRequest(res: Response, options: TtsRequestOptions): Prom
   const params: TtsParams = {
     text,
     voiceId: voiceId || '冰糖',
+    voiceBase64,
     styleMode: styleMode as 'natural' | 'tag' | undefined,
     stylePrompt,
     styleTag,
