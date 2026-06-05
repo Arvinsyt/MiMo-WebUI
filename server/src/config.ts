@@ -14,7 +14,7 @@ export const config = {
   accessPassword: process.env.ACCESS_PASSWORD || '',
   rateLimit: {
     contextWindow: Number(process.env.RATE_LIMIT_CONTEXT_WINDOW) || 8192,
-    maxOutputBytes: Number(process.env.RATE_LIMIT_MAX_OUTPUT) || 8192,
+    maxOutputBytes: Number(process.env.RATE_LIMIT_MAX_OUTPUT) || 0,
     maxRpm: Number(process.env.RATE_LIMIT_RPM) || 100,
     maxTpm: Number(process.env.RATE_LIMIT_TPM) || 10_000_000,
   }

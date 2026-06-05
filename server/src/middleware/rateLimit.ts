@@ -117,6 +117,8 @@ export function refundTpm(tokens: number): void {
 }
 
 export function checkOutputSize(base64Data: string): boolean {
+  const limit = config.rateLimit.maxOutputBytes
+  if (limit <= 0) return true
   const buffer = Buffer.from(base64Data, 'base64')
-  return buffer.length <= config.rateLimit.maxOutputBytes
+  return buffer.length <= limit
 }
