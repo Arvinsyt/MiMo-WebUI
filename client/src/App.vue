@@ -11,6 +11,7 @@ import { useAuth } from './composables/useAuth'
 import ToastContainer from './components/ToastContainer.vue'
 
 const voiceId = ref('冰糖')
+const voiceCloneMode = ref(false)
 const styleMode = ref<StyleMode>('natural')
 const stylePrompt = ref('')
 const styleTag = ref('')
@@ -81,7 +82,7 @@ function onAuthenticated() {
             </svg>
             <h2 class="section-label">选择音色</h2>
           </div>
-          <VoiceSelector v-model="voiceId" />
+          <VoiceSelector v-model="voiceId" v-model:clone-mode="voiceCloneMode" />
         </div>
 
         <div class="sidebar-divider" />

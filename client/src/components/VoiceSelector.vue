@@ -1,22 +1,44 @@
 <script setup lang="ts">
 import { VOICE_PRESETS, type VoicePreset } from '@/types'
 
-defineProps<{
+withDefaults(defineProps<{
   modelValue: string
-}>()
+  cloneMode?: boolean
+}>(), {
+  cloneMode: false
+})
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
+  'update:cloneMode': [value: boolean]
 }>()
 
 function selectVoice(voice: VoicePreset) {
   emit('update:modelValue', voice.voiceId)
 }
+
+function setCloneMode(value: boolean) {
+  emit('update:cloneMode', value)
+}
 </script>
 
 <template>
   <div class="voice-selector">
-    <div class="voice-grid">
+    <div class="mode-tabs">
+      <button
+        :class="['mode-tab', { active: !cloneMode }]"
+        @click="setCloneMode(false)"
+      >
+        预置音色
+      </button>
+      <button
+        :class="['mode-tab', { active: cloneMode }]"
+        @click="setCloneMode(true)"
+      >
+        音色复刻
+      </button>
+    </div>
+    <div class="voice-grid" v-if="!cloneMode">
       <button
         v-for="voice in VOICE_PRESETS"
         :key="voice.id"
@@ -34,21 +56,19 @@ function selectVoice(voice: VoicePreset) {
 </template>
 
 <style scoped>
-.voice-selector {
-  padding: 0 12px;
-}
-
 .voice-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 8px;
+  padding: 0 12px;
+  box-sizing: border-box;
 }
 
 .voice-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px;
+  padding: 10px 12px;
   background: transparent;
   border: 1.5px solid var(--color-border-light, #ede4dc);
   border-radius: 10px;
@@ -114,5 +134,39 @@ function selectVoice(voice: VoicePreset) {
   line-height: 1.2;
   margin-top: 1px;
   font-weight: 400;
+}
+
+.mode-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 0 12px;
+}
+
+.mode-tab {
+  flex: 1;
+  padding: 8px 12px;
+  background: transparent;
+  border: 1.5px solid var(--color-border-light, #ede4dc);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary, #8b7d72);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: var(--font-body, 'Noto Sans SC', sans-serif);
+}
+
+.mode-tab:hover {
+  border-color: var(--color-primary, #d4a574);
+  color: var(--color-primary-dark, #b8845c);
+  background: var(--color-primary-subtle, rgba(212, 165, 116, 0.06));
+}
+
+.mode-tab.active {
+  background: var(--color-primary, #d4a574);
+  border-color: var(--color-primary, #d4a574);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(212, 165, 116, 0.25);
 }
 </style>
