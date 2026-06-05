@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import VoiceSelector from './components/VoiceSelector.vue'
 import StyleControl from './components/StyleControl.vue'
 import TextInput from './components/TextInput.vue'
 import AudioPlayer from './components/AudioPlayer.vue'
+import VoiceCloneUpload from './components/VoiceCloneUpload.vue'
 import { useTts } from './composables/useTts'
 import type { StyleMode } from './types'
 import AuthGate from './components/AuthGate.vue'
@@ -11,7 +12,9 @@ import { useAuth } from './composables/useAuth'
 import ToastContainer from './components/ToastContainer.vue'
 
 const voiceId = ref('冰糖')
-const voiceCloneMode = ref(false)
+const cloneMode = ref(false)
+const voiceBase64 = ref<string | null>(null)
+const hasVoiceFile = ref(false)
 const styleMode = ref<StyleMode>('natural')
 const stylePrompt = ref('')
 const styleTag = ref('')
@@ -21,10 +24,17 @@ const { isLoading, audioBuffer, generateTts } = useTts()
 
 const { isAuthenticated, checkAuth, logout } = useAuth()
 
+const canGenerate = computed(() => {
+  if (!text.value.trim()) return false
+  if (cloneMode.value && !hasVoiceFile.value) return false
+  return true
+})
+
 async function handleGenerate() {
   await generateTts({
     text: text.value,
-    voiceId: voiceId.value,
+    voiceId: cloneMode.value ? undefined : voiceId.value,
+    voiceBase64: cloneMode.value ? (voiceBase64.value ?? undefined) : undefined,
     styleMode: styleMode.value,
     stylePrompt: stylePrompt.value,
     styleTag: styleTag.value
@@ -35,13 +45,11 @@ onMounted(() => {
   checkAuth()
 })
 
-function onAuthenticated() {
-}
 </script>
 
 <template>
   <ToastContainer />
-  <AuthGate v-if="!isAuthenticated" @authenticated="onAuthenticated" />
+  <AuthGate v-if="!isAuthenticated" />
   <div v-else class="app">
     <div class="bg-decoration">
       <div class="bg-orb bg-orb-1" />
@@ -82,7 +90,12 @@ function onAuthenticated() {
             </svg>
             <h2 class="section-label">选择音色</h2>
           </div>
-          <VoiceSelector v-model="voiceId" v-model:clone-mode="voiceCloneMode" />
+          <VoiceSelector v-model="voiceId" v-model:cloneMode="cloneMode" />
+          <VoiceCloneUpload
+            v-if="cloneMode"
+            v-model:voiceBase64="voiceBase64"
+            v-model:hasFile="hasVoiceFile"
+          />
         </div>
 
         <div class="sidebar-divider" />
@@ -109,7 +122,7 @@ function onAuthenticated() {
           <TextInput v-model="text" />
           <button
             class="generate-btn"
-            :disabled="isLoading || !text.trim()"
+            :disabled="isLoading || !canGenerate"
             @click="handleGenerate"
           >
             <svg v-if="!isLoading" class="btn-icon" viewBox="0 0 20 20" fill="currentColor">
